@@ -23,6 +23,8 @@ const ChatController = (function() {
     let highlightedResultIndices = new Set();
     // Add a cache for read_url results
     const readCache = new Map();
+    // Store the original user question for use in final answer synthesis
+    let originalUserQuestion = '';
 
     // Add helper to robustly extract JSON tool calls (handles markdown fences)
     function extractToolCall(text) {
@@ -342,6 +344,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
     async function sendMessage() {
         const message = UIController.getUserInput();
         if (!message) return;
+        originalUserQuestion = message;
         
         // Show status and disable inputs while awaiting AI
         UIController.showStatus('Sending message...');
@@ -900,6 +903,8 @@ Answer: [your final, concise answer based on the reasoning above]`;
             }
             UIController.hideSpinner();
             readSnippets = [];
+            // Prompt for final answer after summary
+            await synthesizeFinalAnswer(aiReply);
             return;
         }
         // Otherwise, split into batches
@@ -942,12 +947,49 @@ Answer: [your final, concise answer based on the reasoning above]`;
             } else {
                 UIController.showSpinner(`Round ${round}: Finalizing summary...`);
                 UIController.addMessage('ai', `Summary:\n${combined}`);
+                // Prompt for final answer after all summaries
+                await synthesizeFinalAnswer(combined);
             }
         } catch (err) {
             UIController.addMessage('ai', `Summarization failed. Error: ${err && err.message ? err.message : err}`);
         }
         UIController.hideSpinner();
         readSnippets = [];
+    }
+
+    // Add synthesizeFinalAnswer helper
+    async function synthesizeFinalAnswer(summaries) {
+        if (!summaries || !originalUserQuestion) return;
+        const selectedModel = SettingsController.getSettings().selectedModel;
+        const prompt = `Based on the following summaries, provide a final, concise answer to the original question.\n\nSummaries:\n${summaries}\n\nOriginal question: ${originalUserQuestion}`;
+        try {
+            let finalAnswer = '';
+            if (selectedModel.startsWith('gpt')) {
+                const res = await ApiService.sendOpenAIRequest(selectedModel, [
+                    { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources and provides a final answer.' },
+                    { role: 'user', content: prompt }
+                ]);
+                finalAnswer = res.choices[0].message.content.trim();
+            } else if (selectedModel.startsWith('gemini') || selectedModel.startsWith('gemma')) {
+                const session = ApiService.createGeminiSession(selectedModel);
+                const chatHistory = [
+                    { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources and provides a final answer.' },
+                    { role: 'user', content: prompt }
+                ];
+                const result = await session.sendMessage(prompt, chatHistory);
+                const candidate = result.candidates[0];
+                if (candidate.content.parts) {
+                    finalAnswer = candidate.content.parts.map(p => p.text).join(' ').trim();
+                } else if (candidate.content.text) {
+                    finalAnswer = candidate.content.text.trim();
+                }
+            }
+            if (finalAnswer) {
+                UIController.addMessage('ai', `Final Answer:\n${finalAnswer}`);
+            }
+        } catch (err) {
+            UIController.addMessage('ai', `Final answer synthesis failed. Error: ${err && err.message ? err.message : err}`);
+        }
     }
 
     // Public API
