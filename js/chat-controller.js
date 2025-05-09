@@ -369,7 +369,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
                 chatHistory.push({ role: 'user', content: enhancedMessage });
                 console.log("Sent enhanced message to GPT:", enhancedMessage);
                 await handleOpenAIMessage(selectedModel, enhancedMessage);
-            } else {
+            } else if (selectedModel.startsWith('gemini') || selectedModel.startsWith('gemma')) {
                 // For Gemini, ensure chat history starts with user message if empty
                 if (chatHistory.length === 0) {
                     chatHistory.push({ role: 'user', content: '' });
@@ -814,7 +814,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
                     { role: 'user', content: prompt }
                 ]);
                 aiReply = res.choices[0].message.content.trim();
-            } else if (selectedModel.startsWith('gemini')) {
+            } else if (selectedModel.startsWith('gemini') || selectedModel.startsWith('gemma')) {
                 const session = ApiService.createGeminiSession(selectedModel);
                 const chatHistory = [
                     { role: 'system', content: 'You are an assistant helping to select the most relevant search results.' },
@@ -878,7 +878,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
                         { role: 'user', content: prompt }
                     ], SUMMARIZATION_TIMEOUT);
                     aiReply = res.choices[0].message.content.trim();
-                } else if (selectedModel.startsWith('gemini')) {
+                } else if (selectedModel.startsWith('gemini') || selectedModel.startsWith('gemma')) {
                     const session = ApiService.createGeminiSession(selectedModel);
                     const chatHistory = [
                         { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
@@ -918,7 +918,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
                         { role: 'user', content: batchPrompt }
                     ], SUMMARIZATION_TIMEOUT);
                     batchReply = res.choices[0].message.content.trim();
-                } else if (selectedModel.startsWith('gemini')) {
+                } else if (selectedModel.startsWith('gemini') || selectedModel.startsWith('gemma')) {
                     const session = ApiService.createGeminiSession(selectedModel);
                     const chatHistory = [
                         { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
