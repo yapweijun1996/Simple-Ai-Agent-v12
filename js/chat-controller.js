@@ -814,6 +814,19 @@ Answer: [your final, concise answer based on the reasoning above]`;
                     { role: 'user', content: prompt }
                 ]);
                 aiReply = res.choices[0].message.content.trim();
+            } else if (selectedModel.startsWith('gemini')) {
+                const session = ApiService.createGeminiSession(selectedModel);
+                const chatHistory = [
+                    { role: 'system', content: 'You are an assistant helping to select the most relevant search results.' },
+                    { role: 'user', content: prompt }
+                ];
+                const result = await session.sendMessage(prompt, chatHistory);
+                const candidate = result.candidates[0];
+                if (candidate.content.parts) {
+                    aiReply = candidate.content.parts.map(p => p.text).join(' ').trim();
+                } else if (candidate.content.text) {
+                    aiReply = candidate.content.text.trim();
+                }
             }
             // Optionally, parse and highlight suggested results
             if (aiReply) {
