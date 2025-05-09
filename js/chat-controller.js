@@ -59,6 +59,7 @@ Begin Reasoning Now:
             }
             const engine = args.engine || 'duckduckgo';
             UIController.showSpinner(`Searching (${engine}) for "${args.query}"...`);
+            UIController.showStatus(`Searching (${engine}) for "${args.query}"...`);
             let results = [];
             try {
                 const streamed = [];
@@ -84,6 +85,7 @@ Begin Reasoning Now:
                 chatHistory.push({ role: 'assistant', content: `Web search failed: ${err.message}` });
             }
             UIController.hideSpinner();
+            UIController.clearStatus();
         },
         read_url: async function(args) {
             if (!args.url || typeof args.url !== 'string' || !/^https?:\/\//.test(args.url)) {
@@ -91,6 +93,7 @@ Begin Reasoning Now:
                 return;
             }
             UIController.showSpinner(`Reading content from ${args.url}...`);
+            UIController.showStatus(`Reading content from ${args.url}...`);
             try {
                 const result = await ToolsService.readUrl(args.url);
                 const start = (typeof args.start === 'number' && args.start >= 0) ? args.start : 0;
@@ -111,6 +114,7 @@ Begin Reasoning Now:
                 chatHistory.push({ role: 'assistant', content: `Read URL failed: ${err.message}` });
             }
             UIController.hideSpinner();
+            UIController.clearStatus();
         },
         instant_answer: async function(args) {
             if (!args.query || typeof args.query !== 'string' || !args.query.trim()) {
@@ -874,6 +878,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
             const prompt = `Summarize the following information extracted from web pages (be as concise as possible):\n\n${snippets[0]}`;
             let aiReply = '';
             UIController.showSpinner(`Round ${round}: Summarizing information...`);
+            UIController.showStatus(`Round ${round}: Summarizing information...`);
             try {
                 if (selectedModel.startsWith('gpt')) {
                     const res = await ApiService.sendOpenAIRequest(selectedModel, [
@@ -902,6 +907,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
                 UIController.addMessage('ai', `Summarization failed. Error: ${err && err.message ? err.message : err}`);
             }
             UIController.hideSpinner();
+            UIController.clearStatus();
             readSnippets = [];
             // Prompt for final answer after summary
             await synthesizeFinalAnswer(aiReply);
@@ -915,6 +921,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
             for (let i = 0; i < totalBatches; i++) {
                 const batch = batches[i];
                 UIController.showSpinner(`Round ${round}: Summarizing batch ${i + 1} of ${totalBatches}...`);
+                UIController.showStatus(`Round ${round}: Summarizing batch ${i + 1} of ${totalBatches}...`);
                 const batchPrompt = `Summarize the following information extracted from web pages (be as concise as possible):\n\n${batch.join('\n---\n')}`;
                 let batchReply = '';
                 if (selectedModel.startsWith('gpt')) {
@@ -943,9 +950,11 @@ Answer: [your final, concise answer based on the reasoning above]`;
             const combined = batchSummaries.join('\n---\n');
             if (combined.length > MAX_PROMPT_LENGTH) {
                 UIController.showSpinner(`Round ${round + 1}: Combining summaries...`);
+                UIController.showStatus(`Round ${round + 1}: Combining summaries...`);
                 await summarizeSnippets(batchSummaries, round + 1);
             } else {
                 UIController.showSpinner(`Round ${round}: Finalizing summary...`);
+                UIController.showStatus(`Round ${round}: Finalizing summary...`);
                 UIController.addMessage('ai', `Summary:\n${combined}`);
                 // Prompt for final answer after all summaries
                 await synthesizeFinalAnswer(combined);
@@ -954,6 +963,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
             UIController.addMessage('ai', `Summarization failed. Error: ${err && err.message ? err.message : err}`);
         }
         UIController.hideSpinner();
+        UIController.clearStatus();
         readSnippets = [];
     }
 
