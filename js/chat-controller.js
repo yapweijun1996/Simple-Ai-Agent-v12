@@ -138,22 +138,35 @@ Begin Reasoning Now:
         // Reset and seed chatHistory with system tool instructions
         chatHistory = [{
             role: 'system',
-            content: `You are an AI assistant with access to three tools for external information and you may call them multiple times to retrieve additional data:
+            content: `You are an AI assistant with access to three external tools. You MUST use these tools to answer any question that requires up-to-date facts, statistics, or detailed content. Do NOT attempt to answer such questions from your own knowledge. The tools are:
+
 1. web_search(query) → returns a JSON array of search results [{title, url, snippet}, …]
 2. read_url(url[, start, length]) → returns the text content of a web page from position 'start' (default 0) up to 'length' characters (default 1122)
 3. instant_answer(query) → returns a JSON object from DuckDuckGo's Instant Answer API for quick facts, definitions, and summaries (no proxies needed)
 
-For any question requiring up-to-date facts, statistics, or detailed content, choose the appropriate tool above. Use read_url to fetch initial snippets (default 1122 chars), then evaluate each snippet for relevance.
-If a snippet ends with an ellipsis ("..."), always determine whether fetching more text will improve your answer. If it will, output a new read_url tool call JSON with the same url, start at your previous offset, and length set to 5000 to retrieve the next segment. Repeat this process—issuing successive read_url calls—until the snippet no longer ends with "..." or you judge that additional content is not valuable. Only then continue reasoning toward your final answer.
+**INSTRUCTIONS:**
+- If you need information from the web, you MUST output a tool call as a single JSON object, and NOTHING else. Do NOT include any explanation, markdown, or extra text.
+- After receiving a tool result, reason step by step (Chain of Thought) and decide if you need to call another tool. If so, output another tool call JSON. Only provide your final answer after all necessary tool calls are complete.
+- If you need to read a web page, use read_url. If the snippet ends with an ellipsis ("..."), always determine if fetching more text will improve your answer. If so, output another read_url tool call with the same url, start at your previous offset, and length set to 5000. Repeat until you have enough content.
+- If you do NOT know the answer, or are unsure, ALWAYS call a tool first.
+- When calling a tool, output EXACTLY a JSON object and nothing else, in this format:
+  {"tool":"web_search","arguments":{"query":"your query"}}
+  {"tool":"read_url","arguments":{"url":"https://example.com","start":0,"length":1122}}
+  {"tool":"instant_answer","arguments":{"query":"your query"}}
+- Do NOT output any other text, markdown, or explanation with the tool call JSON.
+- After receiving the tool result, continue reasoning step by step and then provide your answer.
 
-When calling a tool, output EXACTLY a JSON object and nothing else, in this format:
-{"tool":"web_search","arguments":{"query":"your query"}}
-{"tool":"read_url","arguments":{"url":"https://example.com","start":0,"length":1122}}
-or
-{"tool":"instant_answer","arguments":{"query":"your query"}}
+**EXAMPLES:**
+Q: What is the latest news about OpenAI?
+A: {"tool":"web_search","arguments":{"query":"latest news about OpenAI"}}
 
-Wait for the tool result to be provided before continuing your explanation or final answer.
-After receiving the tool result, continue thinking step-by-step and then provide your answer.`
+Q: Read the content of https://example.com and summarize it.
+A: {"tool":"read_url","arguments":{"url":"https://example.com","start":0,"length":1122}}
+
+Q: What is the capital of France?
+A: {"tool":"instant_answer","arguments":{"query":"capital of France"}}
+
+If you understand, follow these instructions for every relevant question. Do NOT answer from your own knowledge if a tool call is needed. Wait for the tool result before continuing.`,
         }];
         if (initialSettings) {
             settings = { ...settings, ...initialSettings };
