@@ -25,6 +25,8 @@ const ChatController = (function() {
     const readCache = new Map();
     // Store the original user question for use in final answer synthesis
     let originalUserQuestion = '';
+    // Add a flag to control tool workflow
+    let toolWorkflowActive = true;
 
     // Add helper to robustly extract JSON tool calls (handles markdown fences)
     function extractToolCall(text) {
@@ -349,6 +351,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
         const message = UIController.getUserInput();
         if (!message) return;
         originalUserQuestion = message;
+        toolWorkflowActive = true;
         
         // Show status and disable inputs while awaiting AI
         UIController.showStatus('Sending message...');
@@ -668,6 +671,7 @@ Answer: [your final, concise answer based on the reasoning above]`;
 
     // Enhanced processToolCall using registry and validation
     async function processToolCall(call) {
+        if (!toolWorkflowActive) return;
         const { tool, arguments: args, skipContinue } = call;
         // Tool call loop protection
         const callSignature = JSON.stringify({ tool, args });
@@ -997,8 +1001,11 @@ Answer: [your final, concise answer based on the reasoning above]`;
             if (finalAnswer) {
                 UIController.addMessage('ai', `Final Answer:\n${finalAnswer}`);
             }
+            // Stop tool workflow after final answer
+            toolWorkflowActive = false;
         } catch (err) {
             UIController.addMessage('ai', `Final answer synthesis failed. Error: ${err && err.message ? err.message : err}`);
+            toolWorkflowActive = false;
         }
     }
 
