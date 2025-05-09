@@ -872,11 +872,26 @@ Answer: [your final, concise answer based on the reasoning above]`;
             let aiReply = '';
             UIController.showSpinner(`Round ${round}: Summarizing information...`);
             try {
-                const res = await ApiService.sendOpenAIRequest(selectedModel, [
-                    { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
-                    { role: 'user', content: prompt }
-                ], SUMMARIZATION_TIMEOUT);
-                aiReply = res.choices[0].message.content.trim();
+                if (selectedModel.startsWith('gpt')) {
+                    const res = await ApiService.sendOpenAIRequest(selectedModel, [
+                        { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
+                        { role: 'user', content: prompt }
+                    ], SUMMARIZATION_TIMEOUT);
+                    aiReply = res.choices[0].message.content.trim();
+                } else if (selectedModel.startsWith('gemini')) {
+                    const session = ApiService.createGeminiSession(selectedModel);
+                    const chatHistory = [
+                        { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
+                        { role: 'user', content: prompt }
+                    ];
+                    const result = await session.sendMessage(prompt, chatHistory);
+                    const candidate = result.candidates[0];
+                    if (candidate.content.parts) {
+                        aiReply = candidate.content.parts.map(p => p.text).join(' ').trim();
+                    } else if (candidate.content.text) {
+                        aiReply = candidate.content.text.trim();
+                    }
+                }
                 if (aiReply) {
                     UIController.addMessage('ai', `Summary:\n${aiReply}`);
                 }
@@ -896,11 +911,28 @@ Answer: [your final, concise answer based on the reasoning above]`;
                 const batch = batches[i];
                 UIController.showSpinner(`Round ${round}: Summarizing batch ${i + 1} of ${totalBatches}...`);
                 const batchPrompt = `Summarize the following information extracted from web pages (be as concise as possible):\n\n${batch.join('\n---\n')}`;
-                const res = await ApiService.sendOpenAIRequest(selectedModel, [
-                    { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
-                    { role: 'user', content: batchPrompt }
-                ], SUMMARIZATION_TIMEOUT);
-                batchSummaries.push(res.choices[0].message.content.trim());
+                let batchReply = '';
+                if (selectedModel.startsWith('gpt')) {
+                    const res = await ApiService.sendOpenAIRequest(selectedModel, [
+                        { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
+                        { role: 'user', content: batchPrompt }
+                    ], SUMMARIZATION_TIMEOUT);
+                    batchReply = res.choices[0].message.content.trim();
+                } else if (selectedModel.startsWith('gemini')) {
+                    const session = ApiService.createGeminiSession(selectedModel);
+                    const chatHistory = [
+                        { role: 'system', content: 'You are an assistant that synthesizes information from multiple sources.' },
+                        { role: 'user', content: batchPrompt }
+                    ];
+                    const result = await session.sendMessage(batchPrompt, chatHistory);
+                    const candidate = result.candidates[0];
+                    if (candidate.content.parts) {
+                        batchReply = candidate.content.parts.map(p => p.text).join(' ').trim();
+                    } else if (candidate.content.text) {
+                        batchReply = candidate.content.text.trim();
+                    }
+                }
+                batchSummaries.push(batchReply);
             }
             // If the combined summaries are still too long, recursively summarize
             const combined = batchSummaries.join('\n---\n');
